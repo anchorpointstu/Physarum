@@ -80,6 +80,11 @@ function Get-ReleasePlugin([string]$repo, [string]$tag) {
                 Select-Object -First 1
         }
     } catch {
+        $response = $_.Exception.Response
+        if ($response -and [int]$response.StatusCode -eq 404) {
+            if ($tag) { throw "There is no release '$tag' in $repo. See https://github.com/$repo/releases for the available versions." }
+            throw "The repository $repo was not found on GitHub."
+        }
         throw "Could not reach GitHub to download the plug-in ($($_.Exception.Message)). Check the internet connection, or pass -Source <path to Physarum.aex>."
     }
     if (-not $release) { throw "No release of $repo contains Physarum.aex." }
