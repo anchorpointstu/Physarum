@@ -41,3 +41,8 @@ Desktop.ini
 *.log
 *.bak
 *.swp
+
+# Physarum build products
+*.aex
+*.cso
+generated/
