@@ -1,14 +1,24 @@
 <#
 .SYNOPSIS
-    Installs Physarum.aex into Adobe's shared MediaCore plug-ins folder, where
-    After Effects picks it up.
+    Installs the Physarum After Effects plug-in. By default it downloads the newest
+    Physarum.aex from the GitHub releases of anchorpointstu/Physarum and copies it into
+    Adobe's shared MediaCore plug-ins folder.
 
 .DESCRIPTION
     Run on the machine that has After Effects, with After Effects closed, from an
-    elevated (Administrator) PowerShell. On a fresh Windows install scripts are
-    blocked by default, so start it like this:
+    elevated (Administrator) PowerShell. Nothing needs to be downloaded by hand:
+
+        irm https://raw.githubusercontent.com/anchorpointstu/Physarum/main/scripts/install.ps1 | iex
+
+    Or, with the script saved locally (Windows blocks .ps1 files by default, hence Bypass):
 
         powershell -ExecutionPolicy Bypass -File install.ps1
+
+    Where the plug-in comes from, in order:
+      1. -Source <path>
+      2. Physarum.aex next to this script
+      3. build\Release\Physarum.aex when run from a repo checkout
+      4. the newest GitHub release of -Repo (download verified against GitHub's SHA-256)
 
     The destination is read from the registry value Adobe documents for plug-in
     installers (HKLM\SOFTWARE\Adobe\After Effects\<version>\CommonPluginInstallPath).
@@ -16,18 +26,22 @@
     C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore.
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File install.ps1                      # Physarum.aex next to this script
+    powershell -ExecutionPolicy Bypass -File install.ps1
+    powershell -ExecutionPolicy Bypass -File install.ps1 -Version v1.0.0-preview.1
     powershell -ExecutionPolicy Bypass -File install.ps1 -Source D:\Physarum.aex
     powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall
 #>
 [CmdletBinding()]
 param(
     [string]$Source,
+    [string]$Version,                         # release tag; default is the newest release
+    [string]$Repo = 'anchorpointstu/Physarum',
     [string]$Destination,
     [switch]$Uninstall
 )
 
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue' # Windows PowerShell's progress bar slows downloads a lot
 
 # Reads CommonPluginInstallPath from the 64-bit registry view (correct even when this
 # runs in 32-bit PowerShell). Returns the newest After Effects version's value, or $null.
@@ -51,6 +65,48 @@ function Get-AdobeCommonPluginFolder {
     }
 }
 
+# Downloads Physarum.aex from a GitHub release into a temp folder and returns its path.
+function Get-ReleasePlugin([string]$repo, [string]$tag) {
+    # Older Windows 10 builds default to TLS 1.0/1.1, which GitHub refuses.
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $api = "https://api.github.com/repos/$repo/releases"
+    try {
+        if ($tag) {
+            $release = Invoke-RestMethod -UseBasicParsing "$api/tags/$tag"
+        } else {
+            # Newest release first, including pre-releases (which /releases/latest skips).
+            $release = Invoke-RestMethod -UseBasicParsing "$api`?per_page=20" |
+                Where-Object { -not $_.draft -and ($_.assets | Where-Object name -eq 'Physarum.aex') } |
+                Select-Object -First 1
+        }
+    } catch {
+        throw "Could not reach GitHub to download the plug-in ($($_.Exception.Message)). Check the internet connection, or pass -Source <path to Physarum.aex>."
+    }
+    if (-not $release) { throw "No release of $repo contains Physarum.aex." }
+    $asset = $release.assets | Where-Object name -eq 'Physarum.aex' | Select-Object -First 1
+    if (-not $asset) { throw "Release $($release.tag_name) of $repo has no Physarum.aex." }
+
+    $dir = Join-Path ([IO.Path]::GetTempPath()) ("Physarum-" + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force $dir | Out-Null
+    $file = Join-Path $dir 'Physarum.aex'
+    Write-Host "Downloading Physarum $($release.tag_name) from github.com/$repo ..."
+    Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile $file
+
+    # GitHub publishes a SHA-256 digest for every release asset; refuse a mismatch.
+    $digest = [string]$asset.digest
+    if ($digest -match '^sha256:([0-9a-fA-F]{64})$') {
+        $actual = (Get-FileHash -Algorithm SHA256 $file).Hash
+        if ($actual -ne $Matches[1].ToUpperInvariant()) {
+            Remove-Item -Recurse -Force $dir
+            throw "The downloaded file does not match GitHub's SHA-256 for this release. Nothing was installed."
+        }
+        Write-Host "Verified SHA-256 $actual"
+    } else {
+        Write-Warning "GitHub did not provide a SHA-256 digest for this asset; the download was not verified."
+    }
+    return $file
+}
+
 # --- Where to install -------------------------------------------------------------
 if (-not $Destination) {
     $found = Get-AdobeCommonPluginFolder
@@ -66,27 +122,14 @@ if (-not $Destination) {
 }
 $target = Join-Path $Destination 'Physarum.aex'
 
-# --- What to install --------------------------------------------------------------
-if (-not $Uninstall -and -not $Source) {
-    $candidates = @(
-        (Join-Path $PSScriptRoot 'Physarum.aex'),                                        # shipped next to the script
-        (Join-Path (Split-Path -Parent $PSScriptRoot) 'build\Release\Physarum.aex')      # repo build output
-    )
-    $Source = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if (-not $Source) {
-        throw "Physarum.aex not found. Put it next to install.ps1 or pass -Source <path to Physarum.aex>."
-    }
-}
-if (-not $Uninstall -and -not (Test-Path $Source)) { throw "Plug-in not found: $Source" }
-
 # --- Preconditions ----------------------------------------------------------------
 if (Get-Process -Name 'AfterFX' -ErrorAction SilentlyContinue) {
     throw "After Effects is running. Close it first so the plug-in file is not locked."
 }
 
-# --- Do it ------------------------------------------------------------------------
-try {
-    if ($Uninstall) {
+# --- Uninstall --------------------------------------------------------------------
+if ($Uninstall) {
+    try {
         if (Test-Path $target) {
             Remove-Item $target
             if (-not (Get-ChildItem $Destination -Force | Select-Object -First 1)) { Remove-Item $Destination }
@@ -94,13 +137,40 @@ try {
         } else {
             Write-Host "Nothing to remove at $target"
         }
-        return
+    } catch [System.UnauthorizedAccessException] {
+        throw "Administrator rights are needed to change $Destination. Right-click PowerShell, choose 'Run as administrator', and run this again."
     }
+    return
+}
 
+# --- What to install --------------------------------------------------------------
+$downloaded = $null
+if ($Source) {
+    if (-not (Test-Path $Source)) { throw "Plug-in not found: $Source" }
+} else {
+    $local = @()
+    if ($PSScriptRoot) { # empty when run as "irm ... | iex"
+        $local += Join-Path $PSScriptRoot 'Physarum.aex'
+        $local += Join-Path (Split-Path -Parent $PSScriptRoot) 'build\Release\Physarum.aex'
+    }
+    $Source = $local | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($Source -and $Version) { $Source = $null } # an explicit -Version means "from GitHub"
+    if ($Source) {
+        Write-Host "Using local plug-in $Source"
+    } else {
+        $Source = Get-ReleasePlugin $Repo $Version
+        $downloaded = Split-Path -Parent $Source
+    }
+}
+
+# --- Install ----------------------------------------------------------------------
+try {
     New-Item -ItemType Directory -Force $Destination | Out-Null
     Copy-Item $Source $target -Force
 } catch [System.UnauthorizedAccessException] {
     throw "Administrator rights are needed to write to $Destination. Right-click PowerShell, choose 'Run as administrator', and run this again."
+} finally {
+    if ($downloaded) { Remove-Item -Recurse -Force $downloaded -ErrorAction SilentlyContinue }
 }
 # A file copied from a download or a zip carries a "from the internet" mark; clear it.
 Unblock-File $target -ErrorAction SilentlyContinue

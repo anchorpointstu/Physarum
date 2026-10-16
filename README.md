@@ -68,24 +68,31 @@ Without the SDK, the script builds only the CLI.
 
 ## Installing
 
-Copy `Physarum.aex` and `scripts\install.ps1` into one folder on the machine with
-After Effects. Close After Effects, open PowerShell as administrator in that folder, and
-run:
+On the machine with After Effects, close After Effects, open PowerShell as administrator
+(Start, type "PowerShell", right-click, Run as administrator), and paste:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File install.ps1
+irm https://raw.githubusercontent.com/anchorpointstu/Physarum/main/scripts/install.ps1 | iex
 ```
 
-The `-ExecutionPolicy Bypass` part is needed because Windows blocks scripts by default.
-It applies to this one run only.
+This downloads the newest `Physarum.aex` from this repo's
+[Releases](https://github.com/anchorpointstu/Physarum/releases) and checks it against
+GitHub's SHA-256 digest. It then copies it into Adobe's shared plug-in folder. The script
+finds that folder through Adobe's documented `CommonPluginInstallPath` registry value;
+it's normally `C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore`, and the plugin
+goes into a `Physarum` subfolder there. Run the same line again to update.
 
-The script reads Adobe's documented `CommonPluginInstallPath` registry value to find the
-plug-in folder. That is normally
-`C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore`, and the script installs into a
-`Physarum` subfolder there.
+With the script saved locally, other options are available:
 
-- `-Source <path>` installs a plugin from elsewhere.
-- `-Uninstall` removes it again.
+```powershell
+powershell -ExecutionPolicy Bypass -File install.ps1                    # newest release
+powershell -ExecutionPolicy Bypass -File install.ps1 -Source D:\Physarum.aex
+powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall
+```
+
+`-ExecutionPolicy Bypass` is needed because Windows blocks script files by default. It
+applies to that one run only. A `Physarum.aex` next to the script, or in
+`build\Release` of a repo checkout, is used instead of downloading.
 
 Alternatively, copy `Physarum.aex` by hand into that folder or into After Effects'
 `Support Files\Plug-ins` folder.
