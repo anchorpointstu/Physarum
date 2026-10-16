@@ -68,18 +68,30 @@ Without the SDK, the script builds only the CLI.
 
 ## Installing
 
-On the machine with After Effects, close After Effects, then run from an elevated
-PowerShell:
+Copy `Physarum.aex` and `scripts\install.ps1` into one folder on the machine with
+After Effects. Close After Effects, open PowerShell as administrator in that folder, and
+run:
 
 ```powershell
-scripts\install.ps1 -Source <path to Physarum.aex>
+powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-This copies the plugin to
-`C:\Program Files\Common Files\Adobe\Common\Plug-ins\7.0\MediaCore\Physarum\`.
-`-Uninstall` removes it again.
+The `-ExecutionPolicy Bypass` part is needed because Windows blocks scripts by default.
+It applies to this one run only.
 
-The plugin needs a DirectX 12 GPU. It has no Visual C++ runtime dependency.
+The script reads Adobe's documented `CommonPluginInstallPath` registry value to find the
+plug-in folder. That is normally
+`C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore`, and the script installs into a
+`Physarum` subfolder there.
+
+- `-Source <path>` installs a plugin from elsewhere.
+- `-Uninstall` removes it again.
+
+Alternatively, copy `Physarum.aex` by hand into that folder or into After Effects'
+`Support Files\Plug-ins` folder.
+
+The plugin needs Windows 10 or 11 and a DirectX 12 GPU. It has no Visual C++ runtime
+dependency.
 
 ## Using it
 
