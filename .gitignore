@@ -1,0 +1,43 @@
+# Build output - ship builds as GitHub Releases, not commits.
+build/
+dist/
+out/
+bin/
+obj/
+Release/
+Debug/
+x64/
+*.pdb
+*.ilk
+*.obj
+*.tlog
+
+# Dependencies
+node_modules/
+vendor/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.key
+
+# Editors and OS
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+.claude/
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.log
+*.bak
+*.swp

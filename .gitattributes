@@ -1,0 +1,18 @@
+# Normalise line endings in the repo; check out with whatever the platform expects.
+* text=auto
+
+# Windows-only formats that break if their line endings are rewritten.
+*.sln     text eol=crlf
+*.vcxproj text eol=crlf
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+*.ps1     text eol=crlf
+
+# Binaries
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.aep  binary
+*.psd  binary
+*.dll  binary
+*.exe  binary
