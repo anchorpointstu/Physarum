@@ -1,5 +1,7 @@
 #include "cli/Args.h"
 
+#include "sim/Presets.h"
+
 #include <cctype>
 #include <cmath>
 #include <cstdio>
@@ -97,6 +99,7 @@ void PrintUsage()
         "  --debug-layer              enable the D3D12 debug layer\n"
         "\n"
         "Settings (angles in degrees, fractions 0..1, colours \"r,g,b\"):\n"
+        "  preset(nets|foam|worms|flow|blobs|coral|sponge|veins) applies a built-in look; put it first\n"
         "  species seed agents stepsPerFrame preRoll boundary(wrap|bounce|respawn)\n"
         "  diffusionRadius diffusionStrength decay trailClamp exposure gamma\n"
         "  palette(species|gradient|fire|ice|neon|mono|bio) colA colB colC\n"
@@ -261,7 +264,12 @@ bool ApplySetting(SimParams& p, const std::string& key, const std::string& value
         return true;
     }
 
-    if (key == "species") { if (!ToUint(value, u)) return bad(); p.numSpecies = u; }
+    if (key == "preset") {
+        const Preset* preset = FindPreset(value.c_str());
+        if (!preset) return bad();
+        ApplyPreset(p, *preset);
+    }
+    else if (key == "species") { if (!ToUint(value, u)) return bad(); p.numSpecies = u; }
     else if (key == "seed") { if (!ToUint(value, u)) return bad(); p.seed = u; }
     else if (key == "agents") { if (!ToUint(value, u)) return bad(); p.agentCount = u; }
     else if (key == "stepsPerFrame") { if (!ToUint(value, u)) return bad(); p.stepsPerFrame = u; }

@@ -62,6 +62,8 @@ add_library(physarum_sim STATIC
     src/sim/SimParams.h
     src/sim/SimInstance.h
     src/sim/SimInstance.cpp
+    src/sim/Presets.h
+    src/sim/Presets.cpp
     src/sim/dx12/Dx12Common.h
     src/sim/dx12/Dx12Common.cpp
     src/sim/dx12/Dx12Buffer.h
